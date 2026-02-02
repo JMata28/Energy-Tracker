@@ -1,16 +1,19 @@
 import json
 import logging
 from datetime import datetime, timezone
+import os
 
 import azure.functions as func
-from azure.storage.blob import BlobServiceClient
-import os
+import pyodbc
 
 silver_layer = func.Blueprint()
 
-BLOB_CONN_STR = os.environ.get("BLOB_CONNECTION_STRING")
-SILVER_CONTAINER = os.environ.get("BLOB_CONTAINER")  # same container, different folder
-
+# SQL connection info
+SQL_SERVER = os.environ.get("SQL_SERVER") 
+SQL_DATABASE = os.environ.get("SQL_DATABASE")  
+SQL_USER = os.environ.get("SQL_USER")        
+SQL_PASSWORD = os.environ.get("SQL_PASSWORD")
+SQL_DRIVER = "{ODBC Driver 18 for SQL Server}"
 
 @silver_layer.blob_trigger(
     arg_name="myblob",
@@ -22,20 +25,17 @@ def process_data_silver(myblob: func.InputStream):
 
     try:
         raw_data = json.loads(myblob.read())
-
         records = raw_data.get("response", {}).get("data", [])
         if not records:
             logging.warning("No records found in Bronze file")
             return
 
+        # Prepare Silver rows
         silver_rows = {}
-
         for r in records:
             period = r["period"]
             region = r["respondent"]
-
             key = (period, region)
-
             if key not in silver_rows:
                 silver_rows[key] = {
                     "timestamp": f"{period}:00:00Z",
@@ -50,7 +50,6 @@ def process_data_silver(myblob: func.InputStream):
                 }
 
             value = int(r["value"])
-
             match r["type"]:
                 case "D":
                     silver_rows[key]["demand_mwh"] = value
@@ -63,24 +62,37 @@ def process_data_silver(myblob: func.InputStream):
 
         silver_data = list(silver_rows.values())
 
-        # Write Silver output
-        blob_service_client = BlobServiceClient.from_connection_string(BLOB_CONN_STR)
-        container_client = blob_service_client.get_container_client(SILVER_CONTAINER)
-
-        now = datetime.now(timezone.utc)
-        silver_path = (
-            f"silver/eia/"
-            f"{now.year}/{now.month:02}/{now.day:02}/"
-            f"{myblob.name.split('/')[-1]}"
+        # Connect to SQL Database
+        conn_str = (
+            f"DRIVER={SQL_DRIVER};SERVER={SQL_SERVER};DATABASE={SQL_DATABASE};"
+            f"UID={SQL_USER};PWD={SQL_PASSWORD};Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
         )
-
-        container_client.upload_blob(
-            name=silver_path,
-            data=json.dumps(silver_data),
-            overwrite=True
-        )
-
-        logging.info(f"Silver data written to {silver_path}")
+        with pyodbc.connect(conn_str) as conn:
+            cursor = conn.cursor()
+            for row in silver_data:
+                cursor.execute("""
+                    MERGE INTO silver.eia_hourly_data AS target
+                    USING (SELECT ? AS timestamp, ? AS region_code) AS source
+                    ON target.timestamp = source.timestamp AND target.region_code = source.region_code
+                    WHEN MATCHED THEN
+                        UPDATE SET
+                            region_name = ?, demand_mwh = ?, demand_forecast_mwh = ?,
+                            net_generation_mwh = ?, total_interchange_mwh = ?, value_units = ?,
+                            ingested_at = ?
+                    WHEN NOT MATCHED THEN
+                        INSERT (timestamp, region_code, region_name, demand_mwh, demand_forecast_mwh,
+                                net_generation_mwh, total_interchange_mwh, value_units, ingested_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                row["timestamp"], row["region_code"],
+                row["region_name"], row["demand_mwh"], row["demand_forecast_mwh"],
+                row["net_generation_mwh"], row["total_interchange_mwh"], row["value_units"],
+                row["ingested_at"],
+                row["timestamp"], row["region_code"], row["region_name"], row["demand_mwh"],
+                row["demand_forecast_mwh"], row["net_generation_mwh"], row["total_interchange_mwh"],
+                row["value_units"], row["ingested_at"])
+            conn.commit()
+        logging.info(f"Silver data successfully written to SQL database ({len(silver_data)} rows)")
 
     except Exception as e:
         logging.error(f"Silver processing failed: {e}")
