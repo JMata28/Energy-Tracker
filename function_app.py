@@ -7,9 +7,11 @@ from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceNotFoundError
 import azure.functions as func
 from silver_layer import silver_layer
+from gold_layer import gold_layer
 
 app = func.FunctionApp()
-app.register_functions(silver_layer)
+app.register_blueprint(silver_layer)
+app.register_blueprint(gold_layer)
 
 EIA_API_KEY = os.environ.get("EIA_API_KEY")
 BLOB_CONN_STR = os.environ.get("BLOB_CONNECTION_STRING")
