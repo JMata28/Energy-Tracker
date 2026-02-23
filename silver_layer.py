@@ -18,7 +18,7 @@ SQL_DRIVER = "{ODBC Driver 18 for SQL Server}"
 @silver_layer.blob_trigger(
     arg_name="myblob",
     path="eia-demand-data/bronze/eia/{name}",
-    connection="BLOB_CONNECTION_STRING"
+    connection="BLOB_CONNECTION_STRING2"
 )
 def process_data_silver(myblob: func.InputStream):
     logging.info(f"Processing Bronze blob: {myblob.name}")

@@ -14,7 +14,7 @@ app.register_blueprint(silver_layer)
 app.register_blueprint(gold_layer)
 
 EIA_API_KEY = os.environ.get("EIA_API_KEY")
-BLOB_CONN_STR = os.environ.get("BLOB_CONNECTION_STRING")
+BLOB_CONN_STR = os.environ.get("BLOB_CONNECTION_STRING2")
 BLOB_CONTAINER = os.environ.get("BLOB_CONTAINER")
 
 EIA_URL = "https://api.eia.gov/v2/electricity/rto/region-data/data"
