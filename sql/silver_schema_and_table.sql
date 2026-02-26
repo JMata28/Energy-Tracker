@@ -1,9 +1,24 @@
-USE EnergyTrackerDB;
+USE EnergyTrackerDB2;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables t
-               JOIN sys.schemas s ON t.schema_id = s.schema_id
-               WHERE t.name = 'eia_hourly_data' AND s.name = 'silver')
+-- 1. Ensure the schema 'silver' exists
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.schemas
+    WHERE name = 'silver'
+)
+BEGIN
+    EXEC('CREATE SCHEMA silver');
+END;
+GO
+
+-- 2. Create the table if it does not exist
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.tables
+    WHERE name = 'eia_hourly_data'
+      AND schema_id = SCHEMA_ID('silver')
+)
 BEGIN
     CREATE TABLE silver.eia_hourly_data (
         timestamp DATETIME2 NOT NULL,
@@ -18,3 +33,4 @@ BEGIN
         CONSTRAINT PK_eia_hourly_data PRIMARY KEY (timestamp, region_code)
     );
 END;
+GO

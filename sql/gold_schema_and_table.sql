@@ -1,9 +1,24 @@
-USE EnergyTrackerDB;
+USE EnergyTrackerDB2;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables 
-               WHERE name = 'eia_daily_summary' 
-                 AND schema_id = SCHEMA_ID('gold'))
+-- 1. Ensure the schema 'gold' exists
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.schemas
+    WHERE name = 'gold'
+)
+BEGIN
+    EXEC('CREATE SCHEMA gold');
+END;
+GO
+
+-- 2. Create the table if it does not exist
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.tables
+    WHERE name = 'eia_daily_summary'
+      AND schema_id = SCHEMA_ID('gold')
+)
 BEGIN
     CREATE TABLE gold.eia_daily_summary (
         date DATE NOT NULL,
@@ -11,13 +26,9 @@ BEGIN
         region_name VARCHAR(50),
         total_demand_mwh INT,
         average_demand_mwh FLOAT,
-        peak_demand_mwh INT,
-        peak_hour INT,
         total_forecast_mwh INT,
-        forecast_error_mwh INT,
-        average_forecast_error_mwh FLOAT,
         total_net_generation_mwh INT,
-        total_interchange_mwh INT,
+        daily_interchange_mwh INT,
         value_units VARCHAR(20),
         ingested_at DATETIME NOT NULL DEFAULT GETUTCDATE(),
         PRIMARY KEY (date, region_code)

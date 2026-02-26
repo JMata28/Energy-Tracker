@@ -7,6 +7,7 @@ import azure.functions as func
 import pyodbc
 
 silver_layer = func.Blueprint()
+BLOB_CONTAINER = os.environ.get("BLOB_CONTAINER")
 
 # SQL connection info
 SQL_SERVER = os.environ.get("SQL_SERVER") 
@@ -17,7 +18,7 @@ SQL_DRIVER = "{ODBC Driver 18 for SQL Server}"
 
 @silver_layer.blob_trigger(
     arg_name="myblob",
-    path="eia-demand-data/bronze/eia/{name}",
+    path=f"{BLOB_CONTAINER}"+"/bronze/eia/{name}",
     connection="BLOB_CONNECTION_STRING2"
 )
 def process_data_silver(myblob: func.InputStream):
