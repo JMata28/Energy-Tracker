@@ -27,7 +27,7 @@ _ **BI dashboard**: Power BI: Report including metrics displaying the Silver and
 ## Key Technologies
 
 - **Python**: Function implementation, data processing
-- **Azure Functions**: Serverless, timer-triggered functions
+- **Azure Functions**: Serverless, timer-triggered and blob-triggered functions
 - **Azure Blob Storage**: Raw data storage for the Bronze layer
 - **Azure SQL Server Database**: Cleaned and structured data storage (Silver and Gold layers)
 - **Power BI**: Data visualization in dashboards
